@@ -1,0 +1,23 @@
+{
+    "name": "khanh/core",
+    "description": "core for all",
+    "type": "project",
+    "autoload": {
+        "psr-4": {
+            "Khanh\\Core\\": "src/"
+        }
+    },
+    "extra": {
+        "laravel": {
+            "providers": [
+                "Khanh\\Core\\ModuleProvider"
+            ],
+            "aliases": {
+            },
+            "dont-discover": [
+                "laravel/dusk"
+            ]
+        }
+    },
+    "require": {}
+}

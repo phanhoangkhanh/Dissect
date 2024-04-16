@@ -29,6 +29,7 @@ if (file_exists($maintenance = __DIR__.'/../storage/framework/maintenance.php'))
 | this application. We just need to utilize it! We'll simply require it
 | into the script here so we don't need to manually load our classes.
 |
+AUTO LOAD CÁC CLASS TỪ VENDOR VÀO ĐỂ SỬ DỤNG
 */
 
 require __DIR__.'/../vendor/autoload.php';
@@ -42,6 +43,8 @@ require __DIR__.'/../vendor/autoload.php';
 | the application's HTTP kernel. Then, we will send the response back
 | to this client's browser, allowing them to enjoy our application.
 |
+//KÍCH QUA BOOTSTRAP CHẠY - TAO RA 1 OBJ $app 
+
 */
 
 $app = require_once __DIR__.'/../bootstrap/app.php';

@@ -1,0 +1,893 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Document</title>
+</head>
+<body>
+CHUONG TRÌNH HỌC:
+    Request Lifecycle
+    Configuration
+    Directory Structure
+    Frontend
+    Service Container
+    Facades
+
+1.Request Lifecycle:
+
+(Apache / Nginx) ---request--- > public/index.php 
+                            --$app (service container)
+                                    -- >HTTP Kernel --Route/Controller -- >Respond.
+[
+    file này kích hoạt việc load các thư viện class trong vendor vào app. 
+    Tiếp tục, kết xuất thêm 1 đối tuong (instance) từ bootstrap/app.php. 
+    Instance đó chính là 1 glue - service container để kết dính các loại thư viện vào.
+    biến $app 
+    $app -> HTTP Kernel . Chứa các tiền xử lý. (lỗi, logging) - chu yếu Middleware
+    $app cũng chính là 1 service containner kích hoạt 1 loat các coponent ( databae, validre,
+    route,...)
+    NHững thứ này dc định nghĩa trong config/app.php. mảng povider.
+
+    Routing là 1 provider quan trọng. Nó hoat đong bằng cách kết xuất thư muc routes và0 
+
+    function (Request $request)  là viết tắt 1 obj của lớp phu thuoc Request 
+            dc lưu biến $request.
+    
+    1.Service container Laravel:
+
+    inject các dependencies vào class xử lý . voi type-hint để viết ngắn gôn 
+
+    vd: 
+    class SuccessfulPeople
+    {    
+        public $health, $money, $happy;
+
+        //Hàm contruct để xay dung đoi tuong. 
+        public function __construct(Health $health, Money $money, Happy $happy)
+        {
+            $this->health = $health;
+            $this->money = $money;
+            $this->happy = $happy;
+        }
+        
+        public function getMoney()
+        {
+            return $this->money;
+        }
+    }
+
++ và laravel đã hỗ trợ binding dể khai báo dependencies trong app/Providers/AppServiceProvider
+    vidu:  dat tên mới cho class User.
+    $this->app->bind('MyUser', function($app) {
+        return new \App\User;
+    });
+
+NHư vậy class MyUser sẽ xuất hiện trong thuộc tính Binding của OBJ app().
+
+Dùng singleton để bind 1 class. Nhưng nó chỉ tao ra 1 obj trong cùng 1 request 
+$this->app->singleton('MyUser', function($app) {
+    return new \App\User;
+});
+
+vd_2:
+$this->app->when(AvatarController::class)
+        ->needs(Filesystem::class)
+        ->give(function () {
+            return Storage::disk('local');
+        });
+
+$this->app->when([PhotoController::class, VideoController::class])
+        ->needs(Filesystem::class)
+        ->give(function () {
+            return Storage::disk('s3');
+        });
+DIen giải: khi gọi class AvatarController thì tiêm 1 dependencies là trả về storage local ( là 1 obj của Filesystem)
+
+    -- > Ta khai báo những function gì đó trong AppServiceProvider bằng $this->app->bind.
+    
+            Sau đó, ta có thể sử dụng ở bất kỳ đâu bằng: app()->make('MyUser'), 
+            HOặc bằng: $this->app->makeWith('App\User', ['id' => 1]) vừa tạo obj vừa truyền tham số . 
+    
+    SERVICE CONTAINER: 
+        cách khai báo các class vào app() .
+        inject class vào class . ( type-hint )
+    SERVICE PROVIDER : 
+        có hai thuoc tính register + boot ( đăng ký vo $this->app ) và bootstrap class đó chạy .  
+        Dùng kỹ thuật cơ bản console class : $this->app->make('App\User');
+    FACADE : 
+        Dùng để viết vắn tắt 1 số class phức dài . 
+        Facade trong Laravel, nó chỉ là một cách thuận tiện để truy xuất các đối tượng trong các service container.
+         Ngoài ra, bạn có thể đã sử dụng dependency injection.
+
+    HELPERS : Căn bản việc tạo helper là các hàm hỗ trợ thêm sẽ như sau:
+        0. Viết class Helper cần thiết 
+        1. Tạo 1 file Provider ( chạy artisan: php artisan make:provider name_of_this) 
+        2. Đăng ký helper vào service provider container để load cùng các depencies khác và ta dùng dc mọi nơi 
+            ( ở hàm register Helper::autoload(__DIR__ .'/../../helpers'); )
+            ( classical way: require_once app_path() . '/.../..../....php';)
+        3. Khai báo provider này với Laravel ở mục config/app.php .
+        3.1 Hoặc có thể khai báo provider với Laraavel bằng require trong composer.json (javascript là package.json)
+        4. Khai báo thêm bí danh cho class bằng alias trong config/app . 
+        5. Sử dụng bằng cách gọi EnvatoUser::get_username(1)  (tên Alias :: function viết trong helper đó )
+
+    TRAIST: Một cách khác nữa là viết Traits. Traits sinh ra để tiêm đa thừa kế nhiều lớp. 
+            Gần như Helper nhưng Trait ko cần register vào service container . 
+            Trait y như copy 1 doan function ra ngoài và copy past vào chỗ cần dùng. 
+            Chỉ cần khai báo : trait Sharable  
+            Còn bên class sữ dung thì :  use Sharable; 
+
+    CONFIG: có thể khai báo 1 số giá trị măc định và truy cập trong file config/ app . 
+            $value = config('app.timezone');
+    
+    ROUTES: 
+        Khai báo route với tham số + regular:
+            Route::get('/user/{id}/{name}', function (string $id, string $name) {
+                // ...
+            })->where(['id' => '[0-9]+', 'name' => '[a-z]+']);
+        Khai báo trong App\Providers\RouteServiceProvider các ràng buoc mặc đinh:
+            Route::pattern('id', '[0-9]+');
+        Đặt tên route + truyền tham số:
+            Route::get('profile/{id}', function ($id) {
+                //
+            })->name('profile');
+            sử dung: 
+            return redirect()->route('home');
+            $url = route('profile', ['id' => 1]);
+        Đặt route middleware và group nhóm routes lại 
+            Route::middleware(['first', 'second'])->group(function () {..Route::get , Route::get..})
+        Limit request bàng throttle
+            Route::middleware('throttle:5,1')->.. ( gửi 5 lần 1 phut)
+
+    MIDDLEWARE: 
+        Chạy lệnh để tạo 1 file middleware: php artisan make:middleware CheckAge.
+        Gắn middleware ở route và đinh nghĩa bên file middleware 
+        public function handle($request, Closure $next)
+        {
+            if ($request->age < = 18) {
+                return response('Bạn chưa đủ 18 tuổi');
+            }
+            
+            return $next($request)
+        }
+        khai báo alias cua middleware trong Http/Kernel : 'CheckAge' => \App\Http\Middleware\CheckAge::class,
+        gắn vào đuôi Route -> ..
+        Có thể khai báo middleware global trong app/Http/Kernel 
+        Hoặc khai báo 1 tên chung cho 1 loạt middleware : 
+        protected $middlewareGroups = [
+        'web' => [
+            \App\Http\Middleware\EncryptCookies::class,
+            \Illuminate\Cookie\Middleware\AddQueuedCookiesToResponse::class,
+            \Illuminate\Session\Middleware\StartSession::class, ]
+        sử dụng: 
+            Route::group(['middleware' => ['web']], function () {
+                //
+            });
+        Truyền thêm cả tham số vào middleware va nhận như 1 biến xử lý bên chính file Middle này :
+            Route::get('/post', function () {
+                return 'Body post';
+            })->middleware('role:editor');
+            truyền editor vô function ( $request, Closure $next, $role )
+
+    VIEW : đây là một view engine của Laravel, chúng ta sẽ sử dụng những cú pháp riêng biệt để có thể làm code nhanh hơn
+        Truyền data vào view : 
+            return view('home', ['name' => 'Lê Chí Huy']);
+            <h1>Hello,</h1>
+        Truyền 1 số config tất cả source view 
+            Khai báo ở app/Provider/AppServiceProvider : View::share('key', 'value');
+        Dùng Yield + extend + section để thừa kế các phần html . 
+        NGoài ra dùng include để nối 1 view khác vào include('user.room')
+            <body>
+                @section('sidebar')
+                    <h1>Sidebar</h1>
+                @show
+                
+                @yield('content')
+            </body>
+
+            Phan con mở rộng :
+                @extends('app')
+                @section('content')
+                    <h1>My content</h1>
+                @endsection
+            Phần con sidebar :
+                @section('sidebar')
+                    @parent
+                
+                    <ul>
+                        <li>Item 1</li>
+                        <li>Item 1</li>
+                    </ul>
+                @endsection
+        Trước khi tai biến ra blade thì phải qua hàm: htmlspecialchars de ngăn việc tải mã độc 
+        Mún hiển thị kiểu viết <html>judhdh</html>. bằng cách {!! $name !!} . 
+        hiện biến JSON @json($array).
+        NHấn mạnh thêm :  @{{ $name }}
+        Viết thêm php trong view : isset empty unless , auth, guest foreach , forelse - empty - endforelse 
+            continue($i == 1) và break($i == 5)
+        Trong các vòng lap luon tồn tại  biến $loop . có mang cả giá trị vòng lap cha : $loop->parent 
+        VOI CAC XU LÝ PHUC TAP DÙNG TỚI @php THÌ TỐT HƠN NÊN DÙNG view composer ĐỂ XỬ LÝ TRƯỚC RỒI RENDER VÀO 
+        Nhớ thêm @csrf với các form c1 method: POST, DELETE, PUT truyền qua route 
+            <form method="POST" action="/post">
+                @csrf
+            bên route : Route::post('/post', function() {...}) . 
+
+            Ngoài ra, khi đổi 1 phương thức khác thì dùng @method
+            <form method="POST" action="/post">
+                @method('PUT') 
+            Bên route: Route::put('/post', function() {..})
+
+            
+    REQUEST: 
+        Route truyền vô : Route::put('user/{id}', 'UserController@update');
+        Tiêm class Requset vào bên COntroller:
+            public function update(Request $request, $id) . có cả biến $id lấy dc 
+            Và đối tương $request chứa rất nhiều thông tin :
+            $request->is('admin/*') 
+            $request->path()
+            $request->isMethod('get')
+            $request->all()
+            $request->input('remember', true) // input có name remember giá tri gì + ko có thì default true 
+            Khai báo mảng trong view : Price: <input type="text" name="products[0][price]"> 
+                                        Truy xuất: $request->input('products.0.name'); tên sp 0 . 
+            Truyền query vào form và lấy : <form action="/post?id=1" method="POST"></form>
+                                        Truy xuất: $request->query('id') lay dc id = 1 
+            Lưu lại inpuit cho lần request kế vào session $request->flash();
+                return back()->withInput(
+                    $request->except('password')
+                );
+                hoac kèm voi redirect : return redirect('form')->withInput();
+            
+            COOKIE là những tập tin dc server gui đến nguoi dùng  và được lưu lại 
+                    thông qua trình duyệt khi người dùng truy cập trang web đó. 
+                    cookies tồn tại trong 1 phien goi là cookies session . 
+                PHP thuần : setcookie(name, value, expire, path ) -- viết truoc thẻ html 
+                        retrive như sau:  $_COOKIE[$cookie_name]
+                Ở LAravel ta lấy từ request -  $request->cookie('name');
+                    Hoặc truyền cookie vô respond :
+                            return response('Hi')->cookie('name', 'Lê Chí Huy', $minutes);
+
+            
+            SESSION : biến session lưu trữ thong tin nguoi dùng, ở tất cả pages của app . và ngưng khi tắt browser 
+                session_start();
+                tiep den viết các info cho session: $_SESSION["favcolor"] = "green";    
+                truy cứu data từ Session ở các pages khác nhau cũng bằng 1 biến SESSION:  $_SESSION["favcolor"]
+
+                "Most sessions set a user-key on the user's computer that looks something like this: 
+                765487cf34ert8dede5a562e4f3a7e12. Then, when a session is opened on another page, 
+                it scans the computer for a user-key. If there is a match, it accesses that session, 
+                if not, it starts a new session"
+
+                session_unset(); + session_destroy();
+            
+            Session lưu trữ các thông tin từ cookie ném qua lại giữa client-server. 
+            Cookie dc lưu bên clinet có time.
+            Session lưu bên server . 
+                1. Chay lênh artisan để tao database lưu session . 
+                2. lưu vào bằng cách : $request->session()->put('key', 'value'); 
+        
+        
+        RESTful API :
+            RESTful là chuẩn hoạt động dựa trên http với hoạt động request từ xa đến server khác để thực hiện CRUD dữ liệu.
+                dạng dữ liệu trao đổi giữa client/server là JSON.
+                Giao thức HTTP hỗ trợ tạo request đến server với nhiều method khác nhau
+                1 dạng JSON:
+                { "id" : 1, "name":"khanh"}
+                1 mảng JSON :
+                [ 
+                    { "id" : 1, "name":"khanh"},
+                    { "id" : 2, "name":"phung"}
+                ]
+                Vì ném qua API sẽ dạng JSON nên hoac chuyển đôi kiêu toJson hoac tạo 1 lớp resource để liên kết 
+                với model và ném API chuẩn RESTful ( GET, POST, PUT, DELETE )
+                b1 : viết route trong routes/api.php ( có prefix api ) : 
+                    vd: Route::put('products/{id}', 'Api\ProductController@update') . 
+                    Hoac viết chùm : 
+                     Route::resource(‘products’, ProductController::class);
+                b2: chay lệnh php artisan make:controller Api/ProductController --api nhằm tạo Controller tuoong ứng 
+                    vd: cap nhật 1 product( như id) bằng binding 
+                        public function update(Request $request, Product $product)
+                        {
+                            return $product->update($request->all());
+                        }
+                b3: tạo resource chuyển đổi Model - chay lệnh php artisan make:resource Product
+                    Tùy chỉnh trong resoource : 
+                    public function toArray($request)
+                    {
+                        return [
+                            'title' => $this->title,
+                            'price' => $this->price,
+                        ];
+                    }
+                b4: nhét ngược vào Controller - nói chung bọc data truyền vào resource để chuyển sang JSOn 
+                    public function index()
+                    {
+                        $products = Product::all();
+                        return ProductResource::collection($products);
+                    }
+
+
+
+
+PHP 
+- keyword PHP ko phan biet hoa- thuong: if, echo, eleseif,...Nhưng biến thì khác có phân biệt $a # $A 
+- biến php chỉ có _ , số , chữ . 
+- biến PHP ko có khai báo type chat chẽ. nhưng đã có từ khóa strict. BIến dc taao ra khi gán giá trị 
+                        chứ không cần khai báo biến trước 
+- Các dạng biến : string, int, float, boolen, array, obj, null, resource . var_dump() để test dạng 
+- Biến PHP global dc lưu trong mảng $GLOBALS['y'] và dc dùng bất kỳ đâu . 
+            $x = 5;
+            $y = 10;
+            function myTest() {
+                $GLOBALS['y'] = $GLOBALS['x'] + $GLOBALS['y'];
+                hoăc dùng : global $x, $y để truy cập biến global trong hàm 
+            }
+
+
+- Các biến khai báo trong 1 hàm sẽ mất đi. Nhưng nếu lưu lai thì dùng : static $x để save lai biến 
+- Type INT có số âm -2 tỷ đến + 2 tỷ 
+- OBJ : A class is a template for objects, and an object is an instance of a class. 
+        class Car {
+            public $color;
+            public $model;
+            public function __construct($color, $model) {
+                $this->color = $color;
+                $this->model = $model;
+            }
+            public function message() {
+                return "My car is a " . $this->color . " " . $this->model . "!";
+            }
+        }
+         sử dụng :
+        $myCar = new Car("red", "Volvo");
+
+- nén kiểu biến : $x = 5;  $x = (string) $x;  nén int -> string 
+- STRING: 
+        - dùng dấu "xin loi em $nga" có thể ghi biến . 
+        - Kiểm tra 1 từ trong chuỗi :  strpos("Hello world!", "world");
+        - trim() 
+        - Chuyển String -> Array : $x = "Hello World!"; $y = explode(" ", $x);
+        - Cắt chuôi. có thể cắt lùi từ rìa phải :  substr($x, -5, 3);
+- NUMBER: 
+        - INT :  is_int() 
+        - Kiểm tra có phải số ko ? is_nan() + is_numeric()  not a number ? 
+        - ép từ flat -> int :   $x = "23465.768"; $int_cast = (int)$x;
+
+- Ép kiểu từ OBJ -> Array cũng dc. và nó ra mảng với key là các thuoc tính 
+    $myCar = new Car("red", "Volvo");
+    $myCar = (array) $myCar;
+- Ep kiểu từ Aray -> OBJ thì hay hơn : 
+    $a = array("Volvo", "BMW", "Toyota"); => 
+                                    object(stdClass)#1 (3) {
+                                        [0]=>
+                                        string(5) "Volvo"
+                                        [1]=>
+                                        string(3) "BMW"
+                                        [2]=>
+                                        string(6) "Toyota"
+                                    }
+    array("Peter"=>"35", "Ben"=>"37", "Joe"=>"43")  => 
+                                    object(stdClass)#2 (3) {
+                                        ["Peter"]=>
+                                        string(2) "35"
+                                        ["Ben"]=>
+                                        string(2) "37"
+                                        ["Joe"]=>
+                                        string(2) "43"
+                                    }
+
+- So ngẫu nhiên : rand(10, 100)
+- Khai báo 1 const : const MYCAR = "Volvo";
+        Hoăc dùng define để khai báo define("cars", ["Alfa Romeo","BMW" ]) 
+
+- Một số Magic Content rất hay: __CLASS__ , __DIR__
+- $txt1 .= $txt2  noi chuoi 2 vào chuỗi 1 . 
+- Array + Array là nhập hai mảng lại : 
+    $x = array("a" => "red", "b" => "green") + $y = array("c" => "blue", "d" => "yellow");
+    KQ: Array ( [a] => red [b] => green [c] => blue [d] => yellow ) 
+- $x = expr1 ? expr2 : expr3  ( expr1 true thì lấy 2 không thì lấy 3 ) 
+        $b = $a < 10 ? "Hello" : "Good Bye";
+- $x = expr1 ?? expr2 ( lấy expr1 khi exp tồn tại -> nếu ko lấy cái exp2 )
+
+- Vong lap forEach và đặt thêm alias key cho Array hoăc OBJ 
+    $members = array("Peter"=>"35", "Ben"=>"37", "Joe"=>"43");
+                    foreach ($members as $x => $y) {
+                        echo "$x : $y <br>";
+                    }
+
+- Để thay thế giá trị của OBJ , Array gốc khi đang lặp thì ta thêm & vào 
+        foreach ($colors as &$x) {
+            if ($x == "blue") $x = "pink";
+        }            
+FUNCTION : hàm cũng có đối số default truoc 
+        function setHeight($minheight = 50) {
+            echo "The height is : $minheight <br>";
+        }
+    thay doi luôn cả giá trị value bên ngoài bằng &
+    function add_five(&$value) {
+        $value += 5;
+      }
+        $num = 2;
+        add_five($num);
+        echo $num --> 7
+- Truyền 1 số tham số vào hàm mà chưa rõ. ( dùng ... giống spread Javascript )
+        function sumMyNumbers(...$x){ $len = count($x); }
+        $a = sumMyNumbers(5, 2, 6, 2, 7, 7);
+- PHP là 1 ngon ngữ Loosen Type nhưng nếu cần thì khai báo để siết type data 
+        <?php declare(strict_types=1);
+      nén kiểu INT dù là Float : 
+      function addNumbers(float $a, float $b) : int {
+        return (int)($a + $b);
+      }
+      echo addNumbers(1.2, 5.2);
+- Danh sách hàm thuộc mảng * w3school 
+- Khai báo mảng rồi thêm các phần tử dần 
+        $cars = [];
+        $cars[0] = "Volvo";
+        $cars[1] = "BMW";
+        $cars[2] = "Toyota";
+        hoặc: 
+        $myCar["brand"] = "Ford";
+        $myCar["model"] = "Mustang";
+        $myCar["year"] = 1964;
+- Kích hoat 1 function từ trích xuất mảng 
+    $myArr = array("Volvo", 15, myFunction);
+    $myArr[2]();
+    hoặc :
+    $myArr = array("car" => "Volvo", "age" => 15, "message" => myFunction);
+    $myArr["message"]();
+- Thay đoi truc tiep 1 mảng :
+        $cars = array("Volvo", "BMW", "Toyota");
+        foreach ($cars as &$x) {
+            $x = "Ford";
+        }
+        unset($x);
+        ( nhớ thêm unset biến x. nếu ko nó vẫn lưu giá trị reference array item cuối)
+- THêm 1 phan tử vao mảng simple :
+    $fruits = array("Apple", "Banana", "Cherry");
+    $fruits = ["Orange"];
+        Với associate array 
+    $cars = array("brand" => "Ford", "model" => "Mustang");
+    $cars["color"] = "Red";
+        nhiều item 
+    $fruits = array("Apple", "Banana", "Cherry");
+    array_push($fruits, "Orange", "Kiwi", "Lemon");
+
+- Xóa phần tử : Dùng splice hoặc unset 
+    $cars = array("Volvo", "BMW", "Toyota");
+    array_splice($cars, 1, 1);
+
+    $cars = array("Volvo", "BMW", "Toyota");
+    unset($cars[0], $cars[1]);
+
+    Cắt ptu cuoi dùng : array_pop($cars); 
+    Cắt ptu đầu dùng : array_shift($cars);
+]
+
+- Mảng có thể chứa ptu đơn , chứa key=> value , hoặc chứa array lồng : 
+    $cars = array (
+        array("Volvo",22,18),
+        array("BMW",15,13),
+        array("Saab",5,2),
+        array("Land Rover",17,15)
+    );
+    echo $cars[0][0].": In stock: ".$cars[0][1]
+
+- Một số function hay về Array: 
+        1. array_combine
+    $fname=array("Peter","Ben","Joe");
+    $age=array("35","37","43");
+    $c=array_combine($fname,$age); => Array ( [Peter] => 35 [Ben] => 37 [Joe] => 43 ) 
+        2. compact 
+    biến 1 biến có giá trị thành 1 chuổi có key=> value 
+    $firstname = "Peter";
+    compact("firstname") => Array ( [firstname] => Peter )
+        3. array_unique() 
+        4. array_keys 
+    $a=array("Volvo"=>"XC90","BMW"=>"X5","Toyota"=>"Highlander");
+    array_keys($a) 
+        5. extract 
+    $my_array = array("a" => "Cat","b" => "Dog", "c" => "Horse");
+    extract($my_array); =>  $a = Cat; $b = Dog; $c = Horse
+        6. array_merge  : noi 2 mảng với nhau
+        7. array_push   : nhét nhiều phần tử vào mảng từ cuối ( giống voi array = [] cho từng ptu) 
+
+- BIẾN GLOBAL 
+        1. khai báo 1 biến $x chung và gọi lai nó $GLOBALS['x'];
+        2. $_SERVER : tra ve thong tin từ server 
+        3. $_REQUEST : chứa data submit + cookie  gửi về 
+
+- BIEU THỨC CHÍNH QUY PHP Regular Expressions ( chuyên để viết pattern rồi bỏ vào preg xử lý chuỗi )
+    / wevwreerg/i :  là tìm chuỗi trong // kể cả hoa- thuong 
+    $str = "Visit W3Schools";
+    $pattern = "/w3schools/i";
+    echo preg_match($pattern, $str) => 1;
+
+    Tìm chuỗi và thay thế : 
+    $str = "Visit Microsoft!";
+    $pattern = "/microsoft/i";
+    echo preg_replace($pattern, "W3Schools", $str);
+
+    Tìm "c" và "o" trong 1 chuổi => $pattern = "/[co]/"; rồi dùng preg_match_all($pattern, $txt); 
+- PHP CÓ CHUEYN MỤC XỬ LÝ FORM 
+    - form data lưu vào biến _POST + _GET hoạc _REQUEST . 
+    - POST hay GET là do from method truyền đi 
+    sử dụng lai như sau: 
+        <html>
+        <body>
+
+        Welcome <?php echo $_POST["name"]; ?><br>
+        Your email address is: <?php echo $_POST["email"]; ?>
+
+        </body>
+        </html>
+    - GET và POST đều trả về ARRAY key => value. Nhưng: 
+    - GET lấy từ URL ( đường link , moi nguoi đều thấy. gioi hạn 2000 ký tự - ko nen dùng gửi password )
+    - POST lấy từ giao thức HTTP POST gửi từ form ( ko thấy dc , cuộn trong HTTP request )
+
+- VALIDATION PHP FORM 
+    <form method="post" action="<?php echo htmlspecialchars($_SERVER["PHP_SELF"]);?>">
+    The $_SERVER["PHP_SELF"] is a super global variable that returns the filename of the currently executing script.
+    NHư vậy form gửi ve đúng file PHP đang xử lý - chứ ko gửi sang 1 trang khác 
+    htmlspecialchars() -> chuyển ký tu dac biet thành HTML tránh gửi mã độc 
+    như vậy action sẽ chuyển $_SERVER["PHP_SELF"]  => test_form.php
+    <form method="post" action="<?php echo $_SERVER["PHP_SELF"];?>"> => <form method="post" action="test_form.php"></form>
+
+    Tóm lai cho biến $_SERVER["PHP_SELF"] qua htmlspecialchars. De ngan viêc lái sang 1 web khác 
+    Còn các biến lây từ form lên thì cho qua htmlspecialchars. viết 1 hàm test_function và cho các biến qua 
+
+    if ($_SERVER["REQUEST_METHOD"] == "POST") {
+        $name = test_input($_POST["name"]);
+        $email = test_input($_POST["email"]);
+      }
+      Với hàm test_input
+      function test_input($data) {
+        $data = trim($data);
+        $data = stripslashes($data);
+        $data = htmlspecialchars($data);
+        return $data;
+      }
+
+- Ngày tháng hiện tai chỉ cần dùng date() là xong 
+      Fromat tùy ý : date("Y/m/d") + date("h:i:sa") 
+
+- include ( require )  COPY  paste 1 so doan code vào vi trí cần thiết . 
+    Như vậy viết 1 lần tái dụng nhiều nơi
+    <?php include 'vars.php'; 
+
+- XỬ LÝ FILE ON SERVER : DOC VIET TẠO APPEND VÀ UPLOAD 
+    - Mở file và đọc : readfile("webdictionary.txt"); 
+    - fopen + fread + filesize("webdictionary.txt") + fclose 
+    - Kỹ thuật doc từng dòng trong file cho toi khi cuối : feof(file) 
+        $myfile = fopen("webdictionary.txt", "r") or die("Unable to open file!");
+        // Output one line until end-of-file
+        while(!feof($myfile)) {
+        echo fgets($myfile) . "<br>";
+        }
+        fclose($myfile);
+    - Tạo ra 1 file mới ( cũng dùng fopen ): $myfile = fopen("testfile.txt", "w")
+    - Tạo 1 file xong viết vào file : fwrite($myfile, $txt); ( viết $txt string vào file ) 
+    - Viết thêm 1 số dòng string vào file đã có  từ truoc dùng append 
+        $myfile = fopen("newfile.txt", "a") or die("Unable to open file!");
+        $txt = "Donald Duck\n";  (\n xuong dòng )
+        fwrite($myfile, $txt);
+        $txt = "Goofy Goof\n";
+        fwrite($myfile, $txt);
+        fclose($myfile);
+    - Ta cũng dùng 1 số lệnh để upload file lên server 
+        - viết html form post để up file: <form action="upload.php" method="post" enctype="multipart/form-data"> 
+
+- COOKIES :
+    là 1 file nhỏ luu máy user và gửi vè server chung request đê xác đinh nguoi dùng là ai. 
+    Viết 1 cookies (truoc1 html ) đinh dang user + ton tai 30 ngày ở moi nơi ('/') 
+    <?php
+    $cookie_name = "user";
+    $cookie_value = "John Doe";
+    setcookie($cookie_name, $cookie_value, time() + (86400 * 30), "/"); // 86400 = 1 day
+    ?>
+    <html> .....</html>
+    Cookie dc lưu vào biến toàn cục : $_COOKIE[$cookie_name] 
+- SESSION : 
+    Lưu trự thong tin 1 user bên server, sữ dụng mọi nơi trong app. Cho đến khi user tắt ứng dụng. 
+
+- NHư vậy sau khi nhập form đăng nhập. Session bên server tạo ra và cấp cho trình duyệt của user 1 cookie chứa ssession ID 
+    Session ID. Tất cả request sau đều mang theo cookie đó vào session để kiểm tra user mà định tuyến tương ứng
+    NHưng với API để xác thực thì phải gửi kèm token về server cần liên hệ để xác thực bạn là ai? 
+
+
+- Filter var : kiem tra nhanh 1 số thứ 
+    if (!filter_var($email, FILTER_VALIDATE_EMAIL) === false)
+    if (!filter_var($ip, FILTER_VALIDATE_IP) === false) 
+    if (!filter_var($int, FILTER_VALIDATE_INT) === false)
+
+- CALLBACK :
+            là 1 hàm dc truyền như 1 đối số vào 1 hàm khác 
+            function exclaim($str) {
+                return $str . "! ";
+              }
+              
+              function ask($str) {
+                return $str . "? ";
+              }
+              
+              function printFormatted($str, $format) {
+                // Calling the $format callback function
+                echo $format($str);
+              }
+            printFormatted("Hello world", "exclaim");
+            printFormatted("Hello world", "ask");
+- JSON :
+    PHP có 2 hamn xử lý json manh: 
+        json_encode() và json_decode() => chuyển thành obj 
+
+- THROW + TRY + CATCH : 
+    try+ catch dùng khi test thực hien 1 hàm . Exception $e giống 1 type hint và là 1 OBJ quan trọng 
+    function divide($dividend, $divisor) {
+        if($divisor == 0) {
+          throw new Exception("Division by zero");
+        }
+        return $dividend / $divisor;
+      }
+      ( nếu ko dùng catch thì cũng chẳng bắt dc exeption)
+      try {
+        echo divide(5, 0);
+      } catch(Exception $ex) {
+        echo "Unable to divide.";
+        $code = $ex->getCode();
+        $message = $ex->getMessage();
+        $file = $ex->getFile();  // file nào lỗi
+        $line = $ex->getLine();  // dong nào lỗi 
+      } final{
+        echo " process completely"
+      }
+    
+- OOP : $this->.. là dai dien cho OBJ hiện tại và chỉ dc dùng trong method của class tao ra obj đó 
+    MỘt class đầy đủ method + contruct + property 
+    class Fruit {
+        public $name;
+        public $color;
+      
+        function __construct($name, $color) {
+          $this->name = $name;
+          $this->color = $color;
+        }
+        function __destruct() {      // dc goi vào lúc cuối khi obj dc thực thi 
+            echo "The fruit is {$this->name}.";
+          }
+        function get_name() {
+          return $this->name;
+        }
+        function get_color() {
+          return $this->color;
+        }
+      }
+    - Mức độ tiep cận: public, private, protectd 
+    class Fruit {
+        public $name;
+        protected $color;
+        private $weight;
+      }
+      khi sử dụng : 
+      $mango = new Fruit();
+      $mango->name = 'Mango'; // OK
+      $mango->color = 'Yellow'; // ERROR
+      $mango->weight = '300'; // ERROR 
+
+    Nếu là lop con thừa kế (extends ) thì cũng chỉ dc dùng đến protected chứ private thì ko . 
+    Nhưng protect cũng dùng trong nội hàm class con chứ ko dùng trưc tiep voi OBJ 
+
+    ví du class thừa ke và ghi đè phuong thức :( để tránh ghi đề từ class con ta dùng từ final)
+    class Fruit {
+        public $name;
+        public $color;
+        public function __construct($name, $color) {
+          $this->name = $name;
+          $this->color = $color;
+        }
+        public(/final) function intro() {
+          echo "The fruit is {$this->name} and the color is {$this->color}.";
+        }
+      }
+      
+      class Strawberry extends Fruit {
+        public $weight;
+        public function __construct($name, $color, $weight) {
+          $this->name = $name;
+          $this->color = $color;
+          $this->weight = $weight;
+        }
+        public function intro() {
+          echo "The fruit is {$this->name}, the color is {$this->color}, and the weight is {$this->weight} gram.";
+        }
+      }
+      
+      $strawberry = new Strawberry("Strawberry", "red", 50);
+      $strawberry->intro();
+
+    - CONST : tiep xúc const bang dấu :: 
+    class Goodbye {
+        const LEAVING_MESSAGE = "Thank you for visiting W3Schools.com!";
+        public function byebye() {
+          echo self::LEAVING_MESSAGE;
+        }
+      }
+    
+- Interfaces : GIAO DIỆN 
+    Khá giống 1 class Abtract ( trừu tượng ). NÓ viết tap hop các hàm cần thiết để 1 class nào đó dùng 
+    khi cần và địnhn ghĩa sâu hơn. Class implemet có thể extent từ 1 class khác ( hộ tro đa hình cho php) 
+    vd sử dụng : 
+    interface Animal {
+        public function makeSound();
+      }
+      
+      class Cat implements Animal {
+        public function makeSound() {
+          echo "Meow";
+        }
+      }
+      
+      $animal = new Cat();
+      $animal->makeSound();
+
+- TRAITS : interaface chỉ tao 1 khung cho class nương theo. nhưng traits mới là giải pháp đa thừa kế. 
+        Ta có thể dùng nhiều trait 1 lúc dù class extent từ 1 lớp nào đó.
+        trait message1 {
+        public function msg1() {
+            echo "OOP is fun! ";
+        }
+        }
+        
+        class Welcome {
+        use message1, mess....;
+        }
+        
+        $obj = new Welcome();
+        $obj->msg1();
+
+- STATIC function : có thể sự dung trưc tiep ko thông qua tạo obj . goi bằng cách dùng :: 
+    class greeting {
+        public static function welcome() {
+        echo "Hello World!";
+        }
+    }
+    greeting::welcome();
+    greeting()  // doi xử voi class như 1 hàm đơn . 
+    Dùng liên class : 
+    class A {
+        public static function welcome() {
+          echo "Hello World!";
+        }
+      }
+      
+      class B {
+        public function message() {
+          A::welcome();   // ở đây goi lớp xuất phát là A - nếu là lớp cha thì dung parent 
+        }
+      }
+    Neu static dc dùng troong nội tại class đó thì dùng self :
+    class pi {
+        public static $value=3.14159;
+        public function staticValue() {
+          return self::$value;
+        }
+      }
+
+        $pi = new pi();
+        echo $pi->staticValue();
+
+-NAMESPACE : 
+      Dùng namespase ở 1 nơi nào khac: $table = new Html\Table();
+      Dùng alias như này :
+        use Html as H;
+        $table = new H\Table();
+
+- AJAX : cũng khá giống livewire hay React co gang giảm tải viec load toàn trang 
+      (AJAX is a developer's dream) 
+      (Asynchronous JavaScript And XML.)
+      trái tim chính là obj : XMLHttpRequest - thông qua obj này trao doi data với server. 
+      Dùng nội tại cùng domain ( ko thể thay thế API ) 
+      var variable = new XMLHttpRequest();
+
+      <script>
+        function loadDoc() {
+          var xhttp = new XMLHttpRequest();
+          // ham chuan bi state gửi để keu goi thay đổi 
+          xhttp.onreadystatechange = function() {
+            if (this.readyState == 4 && this.status == 200) {
+                // .readyState nghĩa là request xong và respond đã có nhận về kèm trang thái ok (200)
+                // this chính là obj XMLHttpRequest
+              document.getElementById("demo").innerHTML = this.responseText; // chuyển respond thành string
+            }
+          };
+          xhttp.open("GET", "ajax_info.txt", true); // file ajax_info chứa data mún thay thế 
+          xhttp.send();  // gửi request này về server 
+        }
+        </script>
+    
+    Cách send dat bằng GET: ( tham so fname + lname)
+    xhttp.open("GET", "demo_get2.asp?fname=Henry&lname=Ford", true);
+    xhttp.send();
+    Cách sens data bằng POST : ( tham so fname + lname truyền qua send )
+    xhttp.open("POST", "demo_post2.asp", true);
+    xhttp.setRequestHeader("Content-type", "application/x-www-form-urlencoded");
+    xhttp.send("fname=Henry&lname=Ford");
+
+    open là mở 1 file nào đó trên server . 
+    Trong OBJ xhttp=new XMLHttpRequest(); se có thuoc tính xhttp.responseXML; là những gì trả về từ server 
+
+    4 BUOC TIEU CHUAN CHO AJAX 
+    1. tao oobj XMLHttpRequest  
+    2. tao hàm thực hiện khi status hop lệ 
+    3. Goi ve server 1 file nào đó gethint.asp hoac .php 
+    4. Nhận lai respond - có thể chứa trong responseXML để render ra front-end . 
+
+    AJAX cụng có thể query trực tiếp về DATABASE 
+    
+
+
+- LÝ THUYẾT SÂU LARAVEL : 
+- SERVICE CONTAINER: 
+Service Container. Đó là nơi quản lý Class Dependency, tức xem một Class có những Class phụ thuộc nào. 
+Là kế thừa từ IoC mà căn bản là : thay vì tao ra instance( obj) của các class cần thiết 
+và nhét vào class đang dùng. Thì ta dùng callback để tao ra obj khi cần 
+
+C1: Service Container : BInd vào container với 1 callback sau đó make ra instance cần dùng 
+
+// Binding
+\App::bind('computer', function() {
+    $keyboard = new Keyboard();
+    $monitor = new Monitor();
+    $computer = new Computer($monitor, $keyboard);
+    return $computer;
+}
+
+// Resolving.
+\App::make('computer');
+app('computer');
+app()->make('computer');
+app()['computer']
+
+C2: thông qua type hint ta cũng inject dc thông qua class khởi tạo 
+    class Computer
+    {
+        public $monitor;
+        public $keyboard;
+        public function __construct(Monitor $monitor, Keyboard $keyboard)
+        {
+            $this->monitor = $monitor;
+            $this->keyboard = $keyboard;
+        }
+    }
+    $computer = app('Computer');
+    // Hoặc
+    app()->bind('computer', 'Computer');
+    $computer = app('computer');
+
+Chú ý rằng Service Container sẽ ưu tiên những gì được bind vào app hơn. 
+Tức là nếu bạn có câu lệnh app()->bind('Computer', function(){return 'thang';}); 
+thì khi resolve Computer nó sẽ ra string 'thang' thay vì ra instance của class Computer 
+
+- SERVICE PROVIDER: 
+là 1 abstract class do Laravel cung cấp để tiêm class vào app ( container ). Kèm với defer để ngăn resold ngay 
+Chỉ resold khi cần đến 
+
+    public function register()
+    {
+        $this->app->singleton('hash', function ($app) {
+            return new HashManager($app);
+        });
+    }
+    // class ServiceProvider này sẽ trả về 'hash'
+    public function provides()
+    {
+        return ['hash'];
+    }
+
+    Các xử lý khác chỉ dc nên goi ở boot - sau khi các service provider đã dc duyet hết qua . 
+    Như vậy serviceProvider cung cap 1 class để ta register vào this->app và deferr chỉ khi cần mới bind vào 
+    
+BAN CÓ THỂ VIẾT 1 CLASS BẤT KỲ ĐÂU RỒI INJECT NÓ VÀO CHỖ CẦN THIẾT -> XONG RỒI GOI ĐẾN FUNCTION TRONG CLASS ĐÓ 
+
+
+</body>
+</html>
