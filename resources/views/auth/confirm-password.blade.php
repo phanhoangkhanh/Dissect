@@ -6,7 +6,7 @@
     <form method="POST" action="{{ route('password.confirm') }}">
         @csrf
 
-        <!-- Password -->
+        <!-- Password MAIN CHỈNH SUA NÈ CON-->
         <div>
             <x-input-label for="password" :value="__('Password')" />
 
