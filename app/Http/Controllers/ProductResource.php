@@ -15,6 +15,7 @@ class ProductResource extends Controller
      * Display a listing of the resource.
      * 
      * Mở Posman chay trên deskop Agent để test API . dán link vào và chon phuong thức phù hop
+     * 
      * php artisan make:controller Product --resource 
      */
     public function index()
